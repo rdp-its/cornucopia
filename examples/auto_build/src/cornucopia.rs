@@ -1,4 +1,4 @@
-// This file was generated with `cornucopia`. Do not modify.
+// test::y This file was generated with `cornucopia`. Do not modify.
 
 #[allow(clippy::all, clippy::pedantic)]
 #[allow(unused_variables)]
