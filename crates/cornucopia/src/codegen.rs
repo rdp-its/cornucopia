@@ -353,8 +353,7 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
             ""
         };
         code!(w =>
-            // test::2 #[derive($ser_str Debug, Clone, PartialEq,$copy)]
-            #[derive($ser_str Debug, Clone, PartialEq,$copy)]
+            #[derive($ser_str Debug, Clone, PartialEq,$copy,simbe_derive::HelloMacrox)]
             pub struct $name {
                 $(pub $fields_name : $fields_ty,)
             }
