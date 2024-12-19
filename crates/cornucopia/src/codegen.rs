@@ -326,6 +326,7 @@ fn gen_params_struct(w: &mut impl Write, params: &PreparedItem, ctx: &GenCtx) {
         let traits_idx = (1..=traits.len()).map(idx_char);
         code!(w =>
             #[derive($copy Debug)]
+            // test::3
             pub struct $name<$lifetime $($traits_idx: $traits,)> {
                 $(pub $fields_name: $fields_ty,)
             }
@@ -352,6 +353,7 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
             ""
         };
         code!(w =>
+            // test::2 #[derive($ser_str Debug, Clone, PartialEq,$copy)]
             #[derive($ser_str Debug, Clone, PartialEq,$copy)]
             pub struct $name {
                 $(pub $fields_name : $fields_ty,)
@@ -749,7 +751,8 @@ fn gen_type_modules<W: Write>(
 }
 
 pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> String {
-    let mut buff = "// This file was generated with `cornucopia`. Do not modify.\n\n".to_string();
+    let mut buff =
+        "// test::1 This file was generated with `cornucopia`. Do not modify.\n\n".to_string();
     let w = &mut buff;
     // Generate database type
     gen_type_modules(
