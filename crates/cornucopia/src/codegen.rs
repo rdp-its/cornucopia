@@ -778,7 +778,7 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
                     move |w: &mut String| {
                         let ctx = GenCtx::new(depth, is_async, settings.derive_ser);
                         let import = if is_async {
-                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient; use simbe_derive::HelloMacrox"
+                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient; use simbe_derive::HelloMacrox;use crate::HelloMacro;"
                         } else {
                             "use postgres::{fallible_iterator::FallibleIterator,GenericClient};"
                         };
