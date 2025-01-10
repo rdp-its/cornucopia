@@ -352,7 +352,7 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
             ""
         };
         code!(w =>
-            #[derive($ser_str Debug, Clone, PartialEq,$copy)]
+            #[derive($ser_str Debug, Clone, PartialEq,AxumHandlers$copy)]
             pub struct $name {
                 $(pub $fields_name : $fields_ty,)
             }
@@ -776,7 +776,7 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
                     move |w: &mut String| {
                         let ctx = GenCtx::new(depth, is_async, settings.derive_ser);
                         let import = if is_async {
-                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient;"
+                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient; use simbe_derive::AxumHandlers"
                         } else {
                             "use postgres::{fallible_iterator::FallibleIterator,GenericClient};"
                         };
