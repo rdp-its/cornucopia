@@ -12,6 +12,8 @@ use crate::{
     CodegenSettings,
 };
 
+const INJECT_DERIVE_PREFIX: &'static str = "---!inject_derive";
+
 pub struct GenCtx {
     // Current module depth
     pub depth: u8,
@@ -19,6 +21,7 @@ pub struct GenCtx {
     pub is_async: bool,
     // Should serializable struct
     pub gen_derive: bool,
+    pub inject_derives: Option<std::collections::HashMap<String,String>>
 }
 
 impl GenCtx {
@@ -27,6 +30,7 @@ impl GenCtx {
             depth,
             is_async,
             gen_derive,
+            inject_derives: None
         }
     }
 
@@ -342,6 +346,18 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
         ..
     } = row;
     if *is_named {
+
+        // --!!inject handler uses
+        let inject_derive = if let Some(map) = &ctx.inject_derives {
+            if let Some(injects) = map.get(&name.value) {
+               format!("#[derive({})]",injects.clone())
+            } else {
+                "".to_string()
+            }
+        } else {
+            "".to_string()
+        };
+
         // Generate row struct
         let fields_name = fields.iter().map(|p| &p.ident.rs);
         let fields_ty = fields.iter().map(|p| p.own_struct(ctx));
@@ -352,8 +368,9 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
             ""
         };
         code!(w =>
+            $inject_derive
             #[serde_with::skip_serializing_none]
-            #[derive($ser_str Debug, Clone, PartialEq,AxumHandlers,$copy)]
+            #[derive($ser_str Debug, Clone, PartialEq,$copy)]
             pub struct $name {
                 $(pub $fields_name : $fields_ty,)
             }
@@ -762,7 +779,25 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
     let query_modules = preparation.modules.iter().map(|module| {
         move |w: &mut String| {
             let name = &module.info.name;
-            let ctx = GenCtx::new(2, settings.gen_async, settings.derive_ser);
+            
+            let mut ctx = GenCtx::new(2, settings.gen_async, settings.derive_ser);
+            
+            // begin inject_derive
+            let mut count = 0;
+            let mut map: std::collections::HashMap<String,String> = std::collections::HashMap::new();
+            for q in &module.queries {
+                if count > 1 {
+                    panic!("only 1 {} section per file", INJECT_DERIVE_PREFIX);
+                }
+        
+                let sql = &q.1.sql;
+                count += inject_derive_to_ctx_if_required(&mut map, sql); 
+            }
+            if count > 0 {
+                ctx.inject_derives = Some(map);
+            }
+            // end inject_derive
+
             let params_string = module
                 .params
                 .values()
@@ -777,7 +812,7 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
                     move |w: &mut String| {
                         let ctx = GenCtx::new(depth, is_async, settings.derive_ser);
                         let import = if is_async {
-                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient; use simbe_derive::AxumHandlers;"
+                            "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient;"
                         } else {
                             "use postgres::{fallible_iterator::FallibleIterator,GenericClient};"
                         };
@@ -838,4 +873,49 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
         }
     );
     buff
+}
+
+fn inject_derive_to_ctx_if_required(map: &mut std::collections::HashMap<String, String>, sql: &String) -> i32 {
+    let prefix = INJECT_DERIVE_PREFIX;
+    // println!("==================================================={:?}", sql);
+    if sql.starts_with(prefix) {                
+        let fl = sql.split("\n").next();
+        if let Some(ln) = fl {
+            let name_derives: Vec<&str> = ln.split("|").collect();
+            assert_eq!(name_derives.len(),2, "Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers");
+        
+            let mut name_derives = name_derives.iter();
+            let pname: Vec<&str> = name_derives.next().expect("got emoty next value").split(" ").collect();
+            assert_eq!(pname.len(),2, "Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers");
+            let mut pname = pname.iter();
+            pname.next();
+            let name = pname.next().unwrap();
+            let for_inject = name_derives.next().expect("got emoty next value"); 
+            map.insert(name.to_string() ,for_inject.to_string());
+
+            return 1;
+        } 
+    }
+
+    0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_inject_derive_format(){
+        let mut map = std::collections::HashMap::new();    
+
+        let query_1_derive = "--!!inject_derive Menu|simbe_derive::AxumHandlers";
+        let mut inserted = inject_derive_to_ctx_if_required(&mut map,&query_1_derive.to_string());
+        assert_eq!(inserted,1);
+
+        
+        let query21_derive = "--!!inject_derive Menu|simbe_derive::AxumHandlers,anythinghere";
+        inserted += inject_derive_to_ctx_if_required(&mut map,&query21_derive.to_string());
+        assert_eq!(inserted,2);
+    }
+
 }
