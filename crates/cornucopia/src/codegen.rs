@@ -350,7 +350,13 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
         // --!!inject handler uses
         let inject_derive = if let Some(map) = &ctx.inject_derives {
             if let Some(injects) = map.get(&name.value) {
-               format!("#[derive({})]",injects.clone())
+                let attrs = injects.clone();
+                if attrs.contains("#[derive") {
+                    // can put multiple inline attributes
+                    format!("{}",attrs)
+                } else {
+                    format!("#[derive({})]",attrs)
+                }
             } else {
                 "".to_string()
             }
@@ -882,11 +888,11 @@ fn inject_derive_to_ctx_if_required(map: &mut std::collections::HashMap<String, 
         let fl = sql.split("\n").next();
         if let Some(ln) = fl {
             let name_derives: Vec<&str> = ln.split("|").collect();
-            assert_eq!(name_derives.len(),2, "Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers");
+            assert_eq!(name_derives.len(),2, r#"Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers or --!!inject_derive Menu|#[derive(simbe_derive::AxumHandlers)] #[ah_select("*","private.table_foo")]"#);
         
             let mut name_derives = name_derives.iter();
             let pname: Vec<&str> = name_derives.next().expect("got emoty next value").split(" ").collect();
-            assert_eq!(pname.len(),2, "Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers");
+            assert_eq!(pname.len(),2, r#"Incorrect format for --!!inject_derive value. Please use <StructName>|<the_comma_separated_derives>. ex. --!!inject_derive Menu|simbe_derive::AxumHandlers or --!!inject_derive Menu|#[derive(simbe_derive::AxumHandlers)] #[ah_select("*","private.table_foo")]"#);
             let mut pname = pname.iter();
             pname.next();
             let name = pname.next().unwrap();
