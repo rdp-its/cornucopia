@@ -350,6 +350,7 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
         // --!!inject handler uses
         let inject_derive = if let Some(map) = &ctx.inject_derives {
             if let Some(injects) = map.get(&name.value) {
+                println!("injecting {} with => {injects}", &name.value);
                 let attrs = injects.clone();
                 if attrs.contains("#[derive") {
                     // can put multiple inline attributes
@@ -369,7 +370,7 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
         let fields_ty = fields.iter().map(|p| p.own_struct(ctx));
         let copy = if *is_copy { "Copy" } else { "" };
         let ser_str = if ctx.gen_derive {
-            "serde::Serialize,"
+            "serde::Serialize,serde::Deserialize,"
         } else {
             ""
         };
@@ -671,18 +672,25 @@ fn gen_custom_type(w: &mut impl Write, schema: &str, prepared: &PreparedType, ct
     } = prepared;
     let copy = if *is_copy { "Copy," } else { "" };
     let ser_str = if ctx.gen_derive {
-        "serde::Serialize,"
+        "serde::Serialize,serde::Deserialize,"
     } else {
         ""
     };
     match content {
         PreparedContent::Enum(variants) => {
             let variants_ident = variants.iter().map(|v| &v.rs);
+            let first_variant = variants.first().expect("at least one variant is provided").rs.clone();
             code!(w =>
                 #[derive($ser_str Debug, Clone, Copy, PartialEq, Eq)]
                 #[allow(non_camel_case_types)]
                 pub enum $struct_name {
                     $($variants_ident,)
+                }
+
+                impl Default for $struct_name {
+                    fn default() -> Self {
+                        Self::$first_variant
+                    }
                 }
             );
             enum_sql(w, name, struct_name, variants);
