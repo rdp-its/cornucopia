@@ -672,7 +672,7 @@ fn gen_custom_type(w: &mut impl Write, schema: &str, prepared: &PreparedType, ct
     } = prepared;
     let copy = if *is_copy { "Copy," } else { "" };
     let ser_str = if ctx.gen_derive {
-        "serde::Serialize,serde::Deserialize,"
+        "serde::Serialize,serde::Deserialize,specta::Type,"
     } else {
         ""
     };
